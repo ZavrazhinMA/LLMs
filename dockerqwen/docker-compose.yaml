@@ -1,0 +1,51 @@
+services:
+  qwen:
+    image: vllm/vllm-openai:latest
+    container_name: qwen-vllm
+    restart: always
+    ports:
+      - "8000:8000"
+
+    gpus: all
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      VLLM_WORKER_MULTIPROC_METHOD: spawn
+
+    volumes:
+      - "//d/QWEN:/model:ro"
+      - "//d/QWEN/lora:/lora:ro"
+
+    command:
+      - --model
+      - "/model"
+      - --served-model-name
+      - "Qwen2.5-1.5B-Instruct"
+      - --host
+      - "0.0.0.0"
+      - --dtype
+      - "float16"
+      - --max-model-len
+      - "2048"
+      - --gpu-memory-utilization
+      - "0.85"
+      - --max-num-seqs
+      - "1"
+      - --enforce-eager
+
+      # ----- LoRA (пример; оставить закомментированным до появления адаптеров) -----
+      # - --lora-modules
+      # - '{"name":"fraud_v1","path":"/lora/fraud_v1","base_model_name":"Qwen/Qwen2.5-1.5B-Instruct"}'
+      # - '{"name":"faq_ru","path":"/lora/faq_ru","base_model_name":"Qwen/Qwen2.5-1.5B-Instruct"}'
+      # -----------------------------------------------------------------------------
+
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:8000/health',timeout=3).status==200 else sys.exit(1)"
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
